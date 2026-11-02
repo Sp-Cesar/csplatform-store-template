@@ -1,0 +1,37 @@
+---
+// Tarjeta de producto del listado. Diseño libre por cliente.
+import BotonAgregar from './islas/BotonAgregar'
+import ImagenProducto from './ImagenProducto.astro'
+import { rutaProducto } from '../lib/catalogo'
+import { formatearSoles } from '../lib/formato'
+import type { ProductoResumen } from '../lib/tipos'
+
+interface Props {
+  producto: ProductoResumen
+  /** true para las primeras tarjetas visibles: carga la imagen de inmediato (mejora el LCP). */
+  prioridad?: boolean
+}
+
+const { producto, prioridad = false } = Astro.props
+---
+
+<article class="group relative flex h-full flex-col overflow-hidden rounded-lg border border-borde bg-white transition-shadow hover:shadow-md">
+  <ImagenProducto src={producto.imagen_url} alt={producto.nombre} prioridad={prioridad} />
+  <div class="flex flex-1 flex-col gap-1 p-3">
+    <p class="text-xs text-suave">{[producto.marca, producto.categoria].filter(Boolean).join(' · ')}</p>
+    <h3 class="font-medium leading-snug">
+      <a href={rutaProducto(producto.sku)} class="after:absolute after:inset-0 group-hover:text-marca">{producto.nombre}</a>
+    </h3>
+    <p class="text-xs text-suave">SKU {producto.sku}</p>
+    <div class="mt-auto flex flex-wrap items-center justify-between gap-x-2 pt-2">
+      <span class="font-semibold">{formatearSoles(producto.precio)}</span>
+      <span class:list={['text-xs font-medium', producto.disponible ? 'text-marca' : 'text-agotado']}>
+        {producto.disponible ? 'Disponible' : 'Agotado'}
+      </span>
+    </div>
+    <!-- Encima del enlace de la tarjeta para que el botón reciba el clic. -->
+    <div class="relative z-[1] pt-2">
+      <BotonAgregar client:visible compacto sku={producto.sku} nombre={producto.nombre} precio={producto.precio} disponible={producto.disponible} />
+    </div>
+  </div>
+</article>

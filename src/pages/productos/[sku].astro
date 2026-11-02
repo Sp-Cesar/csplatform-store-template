@@ -1,0 +1,144 @@
+---
+// Detalle de producto. El identificador público es el SKU. Diseño libre por cliente.
+import Tienda from '../../layouts/Tienda.astro'
+import AvisoError from '../../components/AvisoError.astro'
+import ImagenProducto from '../../components/ImagenProducto.astro'
+import BotonAgregar from '../../components/islas/BotonAgregar'
+import { rutaProducto } from '../../lib/catalogo'
+import { backend, cargarTienda, SIN_CACHE } from '../../lib/conexion'
+import { especificacionesComoFilas, formatearSoles } from '../../lib/formato'
+import { aplicarCache, intentar } from '../../lib/pagina'
+import { enlaceWhatsapp, mensajeConsulta } from '../../lib/whatsapp'
+
+const sku = Astro.params.sku ?? ''
+const estado = await cargarTienda()
+aplicarCache(Astro.response, estado)
+
+const abierta = estado.estado === 'ok'
+const resultado = await intentar(Astro.response, () => (abierta ? backend().producto(sku) : Promise.resolve(null)), null)
+const producto = resultado.valor
+
+if (abierta && resultado.ok && !producto) {
+  Astro.response.status = 404
+  Astro.response.headers.set('Cache-Control', SIN_CACHE)
+}
+
+const tienda = abierta ? estado.tienda : null
+const especificaciones = producto ? especificacionesComoFilas(producto.especificaciones) : []
+const consulta = producto && tienda ? enlaceWhatsapp(tienda.whatsapp, mensajeConsulta(producto)) : null
+const descripcionSeo = producto?.descripcion?.slice(0, 160) || (producto ? `${producto.nombre} a ${formatearSoles(producto.precio)}.` : undefined)
+const urlProducto = producto && Astro.site ? new URL(rutaProducto(producto.sku), Astro.site).href : undefined
+---
+
+<Tienda
+  estado={estado}
+  titulo={producto?.nombre ?? 'Producto no encontrado'}
+  descripcion={descripcionSeo}
+  imagen={producto?.imagen_url}
+  noIndexar={!producto}
+  datosEstructurados={producto
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: producto.nombre,
+        sku: producto.sku,
+        description: producto.descripcion ?? undefined,
+        image: producto.imagen_url ?? undefined,
+        brand: producto.marca ? { '@type': 'Brand', name: producto.marca } : undefined,
+        category: producto.categoria ?? undefined,
+        offers: {
+          '@type': 'Offer',
+          price: producto.precio.toFixed(2),
+          priceCurrency: 'PEN',
+          availability: producto.disponible ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+          url: urlProducto,
+        },
+      }
+    : undefined}
+>
+  {
+    !resultado.ok ? (
+      <AvisoError />
+    ) : !producto ? (
+      <section class="py-16 text-center">
+        <h1 class="text-xl font-semibold">Este producto no está disponible en la web.</h1>
+        <p class="mt-2 text-suave">Puede que lo hayan retirado o que el enlace esté mal escrito.</p>
+        <a href="/productos" class="mt-4 inline-block rounded-md bg-marca px-4 py-2 font-semibold text-white">
+          Ver productos
+        </a>
+      </section>
+    ) : (
+      <>
+        <nav aria-label="Ruta" class="mb-4 text-sm text-suave">
+          <ol class="flex flex-wrap gap-1">
+            <li><a href="/productos" class="hover:text-marca">Productos</a> /</li>
+            {producto.categoria && <li>{producto.categoria} /</li>}
+            <li aria-current="page" class="text-tinta">{producto.nombre}</li>
+          </ol>
+        </nav>
+
+        <article class="grid gap-6 md:grid-cols-2 md:gap-10">
+          <div class="overflow-hidden rounded-lg border border-borde bg-white">
+            <ImagenProducto src={producto.imagen_url} alt={producto.nombre} prioridad tamano={800} />
+          </div>
+
+          <div class="flex flex-col gap-4">
+            <div>
+              {producto.marca && <p class="text-sm font-medium text-marca">{producto.marca}</p>}
+              <h1 class="text-2xl font-semibold leading-tight sm:text-3xl">{producto.nombre}</h1>
+              <p class="mt-1 text-sm text-suave">SKU {producto.sku}</p>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <span class="text-3xl font-bold">{formatearSoles(producto.precio)}</span>
+              <span
+                class:list={[
+                  'rounded-full px-3 py-1 text-sm font-medium',
+                  producto.disponible ? 'bg-teal-50 text-marca' : 'bg-red-50 text-agotado',
+                ]}
+              >
+                {producto.disponible ? 'Disponible' : 'Agotado'}
+              </span>
+            </div>
+
+            <BotonAgregar client:load sku={producto.sku} nombre={producto.nombre} precio={producto.precio} disponible={producto.disponible} />
+
+            {consulta && (
+              <a
+                href={consulta}
+                target="_blank"
+                rel="noopener"
+                class="inline-flex items-center justify-center gap-2 rounded-md border border-[#1f8f4e] px-4 py-2 text-sm font-semibold text-[#1f8f4e] hover:bg-green-50"
+              >
+                Consultar por WhatsApp
+              </a>
+            )}
+
+            {producto.descripcion && (
+              <section>
+                <h2 class="mb-1 font-semibold">Descripción</h2>
+                <p class="whitespace-pre-line text-suave">{producto.descripcion}</p>
+              </section>
+            )}
+
+            {especificaciones.length > 0 && (
+              <section>
+                <h2 class="mb-2 font-semibold">Especificaciones</h2>
+                <dl class="divide-y divide-borde rounded-lg border border-borde bg-white text-sm">
+                  {especificaciones.map(([nombre, valor]) => (
+                    <div class="grid grid-cols-[40%_1fr] gap-3 px-3 py-2">
+                      <dt class="text-suave">{nombre}</dt>
+                      <dd>{valor}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            )}
+
+            <a href="/productos" class="text-sm text-marca underline">← Volver al catálogo</a>
+          </div>
+        </article>
+      </>
+    )
+  }
+</Tienda>

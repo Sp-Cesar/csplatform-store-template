@@ -1,0 +1,111 @@
+---
+// Catálogo: /productos?q=&categoria=&marca=&orden=&pagina=. Diseño libre por cliente.
+// Los filtros son un formulario GET: funcionan sin JavaScript y cada búsqueda tiene su dirección.
+import Tienda from '../../layouts/Tienda.astro'
+import AvisoError from '../../components/AvisoError.astro'
+import GrillaProductos from '../../components/GrillaProductos.astro'
+import Paginacion from '../../components/Paginacion.astro'
+import { NOMBRES_ORDEN, leerFiltros, parametrosDeFiltros, totalPaginas, urlCatalogo } from '../../lib/catalogo'
+import { backend, cargarTienda } from '../../lib/conexion'
+import { aplicarCache, intentar } from '../../lib/pagina'
+import { ORDENES } from '../../lib/tipos'
+
+const estado = await cargarTienda()
+aplicarCache(Astro.response, estado)
+
+const filtros = leerFiltros(Astro.url.searchParams)
+const abierta = estado.estado === 'ok'
+const [pagina, opciones] = await Promise.all([
+  intentar(Astro.response, () => (abierta ? backend().productos(parametrosDeFiltros(filtros)) : Promise.resolve({ total: 0, filas: [] })), {
+    total: 0,
+    filas: [],
+  }),
+  intentar(Astro.response, () => (abierta ? backend().filtros() : Promise.resolve({ categorias: [], marcas: [] })), {
+    categorias: [],
+    marcas: [],
+  }),
+])
+
+const { total, filas } = pagina.valor
+const paginas = totalPaginas(total)
+const categoria = opciones.valor.categorias.find((c) => c.id === filtros.categoria)
+const marcaElegida = opciones.valor.marcas.find((m) => m.id === filtros.marca)
+
+const activos = [
+  filtros.q && { texto: `"${filtros.q}"`, quitar: urlCatalogo({ ...filtros, q: '', pagina: 1 }) },
+  categoria && { texto: categoria.nombre, quitar: urlCatalogo({ ...filtros, categoria: '', pagina: 1 }) },
+  marcaElegida && { texto: marcaElegida.nombre, quitar: urlCatalogo({ ...filtros, marca: '', pagina: 1 }) },
+].filter((a): a is { texto: string; quitar: string } => Boolean(a))
+
+const titulo = filtros.q ? `Resultados para "${filtros.q}"` : (categoria?.nombre ?? marcaElegida?.nombre ?? 'Productos')
+// Las búsquedas y filtros combinados no se indexan; las páginas de categoría sí.
+const noIndexar = Boolean(filtros.q) || activos.length > 1 || filtros.pagina > 1
+const select = 'w-full rounded-md border border-borde bg-white px-3 py-2 text-sm'
+---
+
+<Tienda estado={estado} titulo={titulo} busqueda={filtros.q} noIndexar={noIndexar}>
+  <h1 class="mb-4 text-2xl font-semibold">{titulo}</h1>
+
+  <form method="get" action="/productos" id="filtros" class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+    {filtros.q && <input type="hidden" name="q" value={filtros.q} />}
+    <label class="flex flex-col gap-1 text-xs font-medium text-suave">
+      Categoría
+      <select name="categoria" class={select}>
+        <option value="">Todas</option>
+        {opciones.valor.categorias.map((c) => <option value={c.id} selected={c.id === filtros.categoria}>{c.nombre} ({c.total})</option>)}
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs font-medium text-suave">
+      Marca
+      <select name="marca" class={select}>
+        <option value="">Todas</option>
+        {opciones.valor.marcas.map((m) => <option value={m.id} selected={m.id === filtros.marca}>{m.nombre} ({m.total})</option>)}
+      </select>
+    </label>
+    <label class="col-span-2 flex flex-col gap-1 text-xs font-medium text-suave sm:col-span-1">
+      Ordenar por
+      <select name="orden" class={select}>
+        {ORDENES.map((o) => <option value={o} selected={o === filtros.orden}>{NOMBRES_ORDEN[o]}</option>)}
+      </select>
+    </label>
+    <button type="submit" class="col-span-2 self-end rounded-md border border-marca px-3 py-2 text-sm font-semibold text-marca sm:col-span-1" data-sin-js>
+      Aplicar filtros
+    </button>
+  </form>
+
+  <div class="mb-4 flex flex-wrap items-center gap-2 text-sm">
+    <p class="text-suave" aria-live="polite">
+      {total} {total === 1 ? 'producto' : 'productos'}
+    </p>
+    {
+      activos.map((a) => (
+        <a href={a.quitar} class="inline-flex items-center gap-1 rounded-full bg-stone-200 px-3 py-1 hover:bg-stone-300" aria-label={`Quitar filtro ${a.texto}`}>
+          {a.texto} <span aria-hidden="true">✕</span>
+        </a>
+      ))
+    }
+    {activos.length > 1 && <a href="/productos" class="text-marca underline">Limpiar todo</a>}
+  </div>
+
+  {
+    !pagina.ok ? (
+      <AvisoError />
+    ) : filas.length === 0 ? (
+      <div class="rounded-lg border border-dashed border-borde py-12 text-center">
+        <p class="font-medium">No encontramos productos con esos filtros.</p>
+        <a href="/productos" class="mt-2 inline-block text-marca underline">Ver todos los productos</a>
+      </div>
+    ) : (
+      <GrillaProductos productos={filas} />
+    )
+  }
+
+  <Paginacion filtros={filtros} paginas={paginas} />
+</Tienda>
+
+<script>
+  // Con JavaScript, los filtros se aplican al cambiar y el botón sobra.
+  const formulario = document.getElementById('filtros') as HTMLFormElement | null
+  formulario?.querySelector<HTMLElement>('[data-sin-js]')?.classList.add('sm:hidden', 'hidden')
+  formulario?.addEventListener('change', () => formulario.requestSubmit())
+</script>

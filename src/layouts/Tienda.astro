@@ -1,0 +1,141 @@
+---
+// Cabecera, pie y estado "tienda no disponible". Diseño libre por cliente.
+import '../styles/global.css'
+import ContadorLista from '../components/islas/ContadorLista'
+import { marca } from '../config/tienda'
+import type { EstadoTienda } from '../lib/conexion'
+
+interface Props {
+  estado: EstadoTienda
+  titulo?: string
+  descripcion?: string
+  /** Imagen para redes sociales; por defecto el logo. */
+  imagen?: string | null
+  /** Datos estructurados (schema.org) para buscadores. */
+  datosEstructurados?: Record<string, unknown>
+  /** true en páginas que no deben indexarse (lista, búsquedas). */
+  noIndexar?: boolean
+  /** Texto actual del buscador. */
+  busqueda?: string
+}
+
+const { estado, titulo, descripcion = marca.descripcionSeo, imagen, datosEstructurados, noIndexar = false, busqueda = '' } = Astro.props
+const tienda = estado.estado === 'ok' ? estado.tienda : null
+const nombre = tienda?.nombre || marca.nombreRespaldo
+const tituloCompleto = titulo ? `${titulo} | ${nombre}` : nombre
+const canonica = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined
+const imagenSocial = imagen ?? tienda?.logo_url
+const ruta = Astro.url.pathname
+const enlaces = [
+  { href: '/', texto: 'Inicio', activo: ruta === '/' },
+  { href: '/productos', texto: 'Productos', activo: ruta.startsWith('/productos') },
+]
+---
+
+<!doctype html>
+<html lang={marca.idioma}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{tituloCompleto}</title>
+    <meta name="description" content={descripcion} />
+    {canonica && <link rel="canonical" href={canonica} />}
+    <meta property="og:site_name" content={nombre} />
+    <meta property="og:title" content={tituloCompleto} />
+    <meta property="og:description" content={descripcion} />
+    <meta property="og:type" content="website" />
+    {canonica && <meta property="og:url" content={canonica} />}
+    {imagenSocial && <meta property="og:image" content={imagenSocial} />}
+    <meta name="twitter:card" content={imagenSocial ? 'summary_large_image' : 'summary'} />
+    {(!tienda || noIndexar) && <meta name="robots" content="noindex" />}
+    {datosEstructurados && tienda && <script type="application/ld+json" set:html={JSON.stringify(datosEstructurados)} />}
+  </head>
+  <body class="flex min-h-dvh flex-col font-sans antialiased">
+    <a href="#contenido" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-10 focus:rounded focus:bg-white focus:px-3 focus:py-2">
+      Ir al contenido
+    </a>
+    <header class="border-b border-borde bg-white">
+      <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
+        <a href="/" class="flex min-w-0 items-center gap-3 text-lg font-semibold">
+          {tienda?.logo_url && <img src={tienda.logo_url} alt="" width="40" height="40" class="h-10 w-10 rounded object-contain" />}
+          <span class="truncate">{nombre}</span>
+        </a>
+        {
+          tienda && (
+            <>
+              <nav aria-label="Principal" class="hidden gap-4 text-sm sm:flex">
+                {enlaces.map((e) => (
+                  <a href={e.href} aria-current={e.activo ? 'page' : undefined} class:list={['hover:text-marca', e.activo && 'font-semibold text-marca']}>
+                    {e.texto}
+                  </a>
+                ))}
+              </nav>
+              <div class="ml-auto">
+                <ContadorLista client:idle />
+              </div>
+              <form action="/productos" method="get" role="search" class="order-last flex w-full sm:order-none sm:w-auto sm:flex-1 sm:max-w-sm">
+                <label for="buscar" class="sr-only">Buscar productos</label>
+                <input
+                  id="buscar"
+                  type="search"
+                  name="q"
+                  value={busqueda}
+                  placeholder="Buscar por nombre o SKU"
+                  maxlength="80"
+                  class="w-full rounded-l-md border border-borde px-3 py-2 text-sm"
+                />
+                <button type="submit" class="rounded-r-md bg-marca px-3 text-sm font-semibold text-white hover:bg-marca-oscuro">Buscar</button>
+              </form>
+            </>
+          )
+        }
+      </div>
+    </header>
+
+    <main id="contenido" class="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+      {
+        estado.estado === 'ok' ? (
+          <slot />
+        ) : (
+          <section class="py-20 text-center" role="status">
+            <h1 class="text-xl font-semibold">{marca.textoNoDisponible}</h1>
+            <p class="mt-2 text-suave">
+              {estado.estado === 'error' ? 'No pudimos cargar el catálogo. Intenta de nuevo en unos minutos.' : 'Vuelve más tarde.'}
+            </p>
+          </section>
+        )
+      }
+    </main>
+
+    <footer class="border-t border-borde bg-white text-sm text-suave">
+      <div class="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 sm:flex-row sm:justify-between">
+        <div>
+          <p class="font-medium text-tinta">{nombre}</p>
+          {tienda?.direccion && <p>{tienda.direccion}</p>}
+        </div>
+        {
+          tienda && (
+            <ul class="flex flex-col gap-1 sm:items-end">
+              {tienda.telefono && (
+                <li>
+                  <a href={`tel:${tienda.telefono.replace(/\s/g, '')}`} class="hover:text-marca">
+                    {tienda.telefono}
+                  </a>
+                </li>
+              )}
+              {tienda.email && (
+                <li>
+                  <a href={`mailto:${tienda.email}`} class="hover:text-marca">
+                    {tienda.email}
+                  </a>
+                </li>
+              )}
+              <li>Precios en soles. Pedidos y pagos se coordinan por WhatsApp.</li>
+            </ul>
+          )
+        }
+      </div>
+    </footer>
+  </body>
+</html>

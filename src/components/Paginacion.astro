@@ -1,0 +1,45 @@
+---
+// Paginación del catálogo con enlaces (funciona sin JavaScript). Diseño libre por cliente.
+import { urlCatalogo, type FiltrosCatalogo } from '../lib/catalogo'
+
+interface Props {
+  filtros: FiltrosCatalogo
+  paginas: number
+}
+
+const { filtros, paginas } = Astro.props
+const actual = filtros.pagina
+
+// Primera, última y las vecinas de la actual; los saltos se marcan con "…".
+const visibles = [...new Set([1, actual - 1, actual, actual + 1, paginas])].filter((n) => n >= 1 && n <= paginas).sort((a, b) => a - b)
+const items: (number | '…')[] = visibles.flatMap((n, i) => (i > 0 && n - visibles[i - 1] > 1 ? ['…' as const, n] : [n]))
+const clase = 'inline-flex h-10 min-w-10 items-center justify-center rounded-md border px-3 text-sm'
+---
+
+{
+  paginas > 1 && (
+    <nav aria-label="Páginas" class="mt-8 flex flex-wrap items-center justify-center gap-1">
+      {actual > 1 && (
+        <a href={urlCatalogo({ ...filtros, pagina: actual - 1 })} class={`${clase} border-borde bg-white`} rel="prev">
+          Anterior
+        </a>
+      )}
+      {items.map((n) =>
+        n === '…' ? (
+          <span class="px-1 text-suave" aria-hidden="true">…</span>
+        ) : n === actual ? (
+          <span aria-current="page" class={`${clase} border-marca bg-marca font-semibold text-white`}>{n}</span>
+        ) : (
+          <a href={urlCatalogo({ ...filtros, pagina: n })} class={`${clase} border-borde bg-white`} aria-label={`Página ${n}`}>
+            {n}
+          </a>
+        ),
+      )}
+      {actual < paginas && (
+        <a href={urlCatalogo({ ...filtros, pagina: actual + 1 })} class={`${clase} border-borde bg-white`} rel="next">
+          Siguiente
+        </a>
+      )}
+    </nav>
+  )
+}

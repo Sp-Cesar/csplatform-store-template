@@ -1,0 +1,27 @@
+---
+// Lista del comprador y pedido por WhatsApp. La lista vive en el navegador; aquí solo van los datos de contacto.
+import Tienda from '../layouts/Tienda.astro'
+import Lista from '../components/islas/Lista'
+import { marca } from '../config/tienda'
+import { cargarTienda } from '../lib/conexion'
+import { aplicarCache } from '../lib/pagina'
+
+const estado = await cargarTienda()
+aplicarCache(Astro.response, estado)
+const tienda = estado.estado === 'ok' ? estado.tienda : null
+---
+
+<Tienda estado={estado} titulo="Mi lista" noIndexar>
+  <h1 class="mb-4 text-2xl font-semibold">Mi lista</h1>
+  {
+    tienda && (
+      <Lista
+        client:load
+        whatsapp={tienda.whatsapp}
+        telefono={tienda.telefono}
+        email={tienda.email}
+        opcionesEntrega={marca.opcionesEntrega}
+      />
+    )
+  }
+</Tienda>

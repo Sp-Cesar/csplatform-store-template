@@ -1,0 +1,83 @@
+---
+// Portada. Diseño libre por cliente.
+import Tienda from '../layouts/Tienda.astro'
+import AvisoError from '../components/AvisoError.astro'
+import GrillaProductos from '../components/GrillaProductos.astro'
+import { marca } from '../config/tienda'
+import { urlCatalogo } from '../lib/catalogo'
+import { backend, cargarTienda } from '../lib/conexion'
+import { aplicarCache, intentar } from '../lib/pagina'
+
+const estado = await cargarTienda()
+aplicarCache(Astro.response, estado)
+
+const abierta = estado.estado === 'ok'
+const [recientes, filtros] = await Promise.all([
+  intentar(Astro.response, () => (abierta ? backend().productos({ orden: 'recientes', limite: 8 }) : Promise.resolve({ total: 0, filas: [] })), {
+    total: 0,
+    filas: [],
+  }),
+  intentar(Astro.response, () => (abierta ? backend().filtros() : Promise.resolve({ categorias: [], marcas: [] })), {
+    categorias: [],
+    marcas: [],
+  }),
+])
+const tienda = abierta ? estado.tienda : null
+---
+
+<Tienda
+  estado={estado}
+  datosEstructurados={tienda
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'Store',
+        name: tienda.nombre,
+        logo: tienda.logo_url ?? undefined,
+        telephone: tienda.telefono ?? undefined,
+        email: tienda.email ?? undefined,
+        address: tienda.direccion ?? undefined,
+        url: Astro.site?.href,
+      }
+    : undefined}
+>
+  <section class="mb-8 rounded-xl bg-marca px-6 py-10 text-white sm:px-10">
+    <h1 class="text-3xl font-bold sm:text-4xl">{tienda?.nombre}</h1>
+    <p class="mt-2 max-w-xl text-lg opacity-90">{marca.eslogan}</p>
+    <a href="/productos" class="mt-6 inline-block rounded-md bg-white px-5 py-2.5 font-semibold text-marca hover:bg-stone-100">Ver todos los productos</a>
+  </section>
+
+  {
+    filtros.valor.categorias.length > 0 && (
+      <section class="mb-10" aria-labelledby="titulo-categorias">
+        <h2 id="titulo-categorias" class="mb-3 text-xl font-semibold">
+          Categorías
+        </h2>
+        <ul class="flex flex-wrap gap-2">
+          {filtros.valor.categorias.map((c) => (
+            <li>
+              <a href={urlCatalogo({ categoria: c.id })} class="inline-block rounded-full border border-borde bg-white px-4 py-2 text-sm hover:border-marca hover:text-marca">
+                {c.nombre} <span class="text-suave">({c.total})</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  <section aria-labelledby="titulo-recientes">
+    <div class="mb-3 flex items-baseline justify-between">
+      <h2 id="titulo-recientes" class="text-xl font-semibold">Novedades</h2>
+      <a href={urlCatalogo({ orden: 'recientes' })} class="text-sm font-medium text-marca underline">Ver más</a>
+    </div>
+    {
+      !recientes.ok ? (
+        <AvisoError />
+      ) : recientes.valor.filas.length === 0 ? (
+        <p class="text-suave">Todavía no hay productos publicados.</p>
+      ) : (
+        <GrillaProductos productos={recientes.valor.filas} />
+      )
+    }
+  </section>
+</Tienda>

@@ -1,0 +1,14 @@
+---
+// Página no encontrada. Diseño libre por cliente.
+import Tienda from '../layouts/Tienda.astro'
+import { cargarTienda } from '../lib/conexion'
+
+const estado = await cargarTienda()
+---
+
+<Tienda estado={estado} titulo="Página no encontrada" noIndexar>
+  <section class="py-16 text-center">
+    <h1 class="text-xl font-semibold">No encontramos esta página.</h1>
+    <a href="/productos" class="mt-4 inline-block rounded-md bg-marca px-4 py-2 font-semibold text-white">Ver productos</a>
+  </section>
+</Tienda>

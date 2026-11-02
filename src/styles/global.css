@@ -1,0 +1,23 @@
+@import 'tailwindcss';
+
+/* Colores y tipografía de la marca. Cada cliente los cambia aquí. */
+@theme {
+  --color-marca: #0f766e;
+  --color-marca-oscuro: #115e59;
+  --color-tinta: #1c1917;
+  --color-suave: #57534e;
+  --color-fondo: #fafaf9;
+  --color-borde: #e7e5e4;
+  --color-agotado: #b91c1c;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html {
+  background: var(--color-fondo);
+  color: var(--color-tinta);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-marca);
+  outline-offset: 2px;
+}
