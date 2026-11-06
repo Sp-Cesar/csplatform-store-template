@@ -55,7 +55,7 @@ test.describe('SEO', () => {
     const respuesta = await request.get('/sitemap.xml')
     expect(respuesta.headers()['content-type']).toContain('application/xml')
     const xml = await respuesta.text()
-    expect(xml.match(/<loc>/g)).toHaveLength(15)
+    expect(xml.match(/<loc>/g)).toHaveLength(19)
     expect(xml).toContain('/productos/LAP-001</loc>')
   })
 

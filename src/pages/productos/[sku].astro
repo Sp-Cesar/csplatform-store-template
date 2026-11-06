@@ -106,6 +106,8 @@ const urlProducto = producto && Astro.site ? new URL(rutaProducto(producto.sku),
             {consulta && (
               <a
                 href={consulta}
+                data-umami-event="consulta-whatsapp"
+                data-umami-event-sku={producto.sku}
                 target="_blank"
                 rel="noopener"
                 class="inline-flex items-center justify-center gap-2 rounded-md border border-[#1f8f4e] px-4 py-2 text-sm font-semibold text-[#1f8f4e] hover:bg-green-50"

@@ -31,3 +31,12 @@ export function especificacionesComoFilas(especificaciones: Especificaciones): [
     .map(([clave, valor]): [string, string] => [clave, texto(valor)])
     .filter(([, valor]) => valor !== '')
 }
+
+/**
+ * JSON para insertar dentro de <script> (datos estructurados). JSON.stringify no escapa "<", así que un
+ * nombre de producto con "</script>" cerraría la etiqueta e inyectaría HTML. Se escapan <, >, & y los
+ * separadores de línea U+2028/U+2029; el JSON resultante es equivalente.
+ */
+export function jsonParaScript(datos: unknown): string {
+  return JSON.stringify(datos).replace(/[<>&\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)
+}

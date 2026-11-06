@@ -17,8 +17,11 @@ const servidor = (puerto: number, slug: string) => ({
     PUBLIC_MODO_DEMO: 'true',
     PUBLIC_TIENDA_SLUG: slug,
     PUBLIC_SITIO_URL: `http://localhost:${puerto}`,
-    PUBLIC_SUPABASE_URL: '',
-    PUBLIC_SUPABASE_ANON_KEY: '',
+    SUPABASE_URL: '',
+    SUPABASE_ANON_KEY: '',
+    SENTRY_DSN: '',
+    PUBLIC_UMAMI_SCRIPT: '',
+    PUBLIC_UMAMI_ID: '',
   },
 })
 

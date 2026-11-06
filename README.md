@@ -8,6 +8,9 @@ se gestiona en el panel de CSPlatform.
 Cada cliente tiene **su propio repositorio** creado desde esta plantilla, con diseño libre. Todas las copias
 comparten el mismo núcleo (`src/lib/`), así que las mejoras de la plantilla se pueden traer a cualquier cliente.
 
+Guía maestra (componentes, seguridad, contrato de datos, guía para IAs y lo que falta): **`PLANTILLA.md`**.
+Instrucciones para agentes de IA: `AGENTS.md`.
+
 Plan completo del proyecto: `plan-vitrina-web.md` en la carpeta común `constock-project`
 (sección 7.2 contrato con el backend, 7.5 plantilla, 8 fases).
 
@@ -38,15 +41,19 @@ La primera vez que corras las pruebas de punta a punta instala el navegador: `np
 
 ## 2. Variables de entorno
 
-| Variable | Uso |
-|---|---|
-| `PUBLIC_MODO_DEMO` | `true` usa datos de ejemplo. Vacío o `false` en producción |
-| `PUBLIC_SUPABASE_URL` | `https://gmfjxazokphvccwcltkr.supabase.co` |
-| `PUBLIC_SUPABASE_ANON_KEY` | Clave pública `anon` del proyecto Supabase |
-| `PUBLIC_TIENDA_SLUG` | `slug` que el Centro de Control asignó a la empresa |
-| `PUBLIC_SITIO_URL` | Dominio del cliente con `https://`, para SEO y `sitemap.xml` |
+| Variable | Dónde llega | Obligatoria en producción | Uso |
+|---|---|---|---|
+| `PUBLIC_MODO_DEMO` | Navegador | No (prohibida con `true`) | `true` usa datos de ejemplo |
+| `PUBLIC_TIENDA_SLUG` | Navegador | Sí | `slug` que el Centro de Control asignó a la empresa |
+| `PUBLIC_SITIO_URL` | Navegador | Sí | Dominio del cliente con `https://`, para SEO y `sitemap.xml` |
+| `SUPABASE_URL` | **Solo servidor** | Sí | `https://gmfjxazokphvccwcltkr.supabase.co` |
+| `SUPABASE_ANON_KEY` | **Solo servidor** | Sí | Clave `anon` del proyecto Supabase |
+| `SENTRY_DSN` | **Solo servidor** | No | Monitoreo de errores (Sentry) |
+| `PUBLIC_UMAMI_SCRIPT`, `PUBLIC_UMAMI_ID` | Navegador | No | Analítica sin cookies (Umami) |
 
-- La clave `anon` es pública por diseño: con ella solo se pueden ejecutar las funciones `web_*` de lectura.
+- La clave `anon` **nunca llega al navegador**: el servidor la usa y las islas consultan `/api/*`. Aun así, con
+  ella solo se pueden ejecutar las funciones `web_*`.
+- En producción la compilación **falla** si `PUBLIC_MODO_DEMO=true` o si falta una variable obligatoria.
 - En Vercel las carga el dueño del proyecto. **Nunca** subas `.env` al repositorio (ya está en `.gitignore`).
 - En modo demo, el slug `no-disponible` simula una web desactivada.
 
@@ -58,21 +65,29 @@ src/
     tipos.ts            Tipos del contrato web_* (versión 1)
     backend.ts          Llamadas RPC a Supabase y límites del contrato
     demo.ts             Backend de ejemplo con la misma interfaz
-    conexion.ts         Elige backend real o demo según el entorno; carga la tienda
+    conexion.ts         SOLO SERVIDOR. Elige backend real o demo; carga la tienda; reporta errores
     pagina.ts           Caché del CDN, 503 si la tienda no está disponible, errores del backend
     catalogo.ts         Filtros y direcciones del catálogo
     lista.ts            Lista del comprador en localStorage (lista:{slug})
     usarLista.ts        Hook de Preact que comparte la lista entre islas y pestañas
     whatsapp.ts         Mensaje del pedido y enlace wa.me
-    formato.ts          Soles y especificaciones
+    formato.ts          Soles, especificaciones y JSON seguro para <script>
+    sitio.ts            Configuración pública (slug, modo demo, analítica)
+    api.ts, limite.ts   Ayudas de los endpoints: mismo origen, límite por visitante, JSON
+    clienteApi.ts       Llamadas de las islas a /api/*
+    reclamo.ts          Libro de Reclamaciones: datos y validación
+    analitica.ts        Eventos de Umami (sin datos personales)
+    monitoreo.ts        Errores a los logs y a Sentry
+  pages/api/          NÚCLEO: /api/disponibilidad, /api/reclamos
   pages/sitemap.xml.ts, pages/robots.txt.ts   NÚCLEO
 
   config/tienda.ts    Textos de la marca                      ← se edita por cliente
+  config/legal.ts     Plazos legales y "revisado"              ← se edita por cliente
   styles/global.css   Colores y tipografía (@theme)            ← se edita por cliente
   layouts/            Cabecera, pie, estado "no disponible"    ← diseño libre
   components/         Tarjetas, grilla, imagen, paginación     ← diseño libre
-  components/islas/   ContadorLista, BotonAgregar, Lista       ← diseño libre (Preact)
-  pages/              Portada, catálogo, detalle, lista, 404   ← diseño libre
+  components/islas/   ContadorLista, BotonAgregar, Lista, FormularioReclamo  ← diseño libre (Preact)
+  pages/              Portada, catálogo, detalle, lista, legales, 404        ← diseño libre
 tests/unit/           Pruebas del núcleo
 tests/e2e/            Pruebas del recorrido del comprador
 ```
@@ -85,6 +100,9 @@ Páginas:
 | `/productos?q=&categoria=&marca=&orden=&pagina=` | Catálogo con búsqueda, filtros, orden y paginación |
 | `/productos/{SKU}` | Detalle, cantidad, "Agregar a mi lista" y "Consultar por WhatsApp" |
 | `/lista` | Lista del comprador y "Pedir por WhatsApp" |
+| `/libro-de-reclamaciones` | Libro de Reclamaciones virtual (obligatorio en Perú) |
+| `/legal/terminos`, `/legal/privacidad`, `/legal/cambios-y-devoluciones` | Textos legales base |
+| `POST /api/disponibilidad`, `POST /api/reclamos` | Endpoints que usan las islas (contrato en `PLANTILLA.md` 4.1) |
 | `/sitemap.xml`, `/robots.txt` | SEO |
 
 ## 4. Crear la web de un cliente nuevo
@@ -104,15 +122,18 @@ Tiempo estimado: medio día de configuración más el diseño (1 a 2 días segú
    Si cambiaste textos que las pruebas buscan (por ejemplo "Pedir por WhatsApp"), ajusta `tests/e2e`.
 6. **Centro de Control de CSPlatform.** En la ficha de la empresa: activar "Tienda web" y asignar el `slug`
    (3 a 40 caracteres: minúsculas, números y guiones).
-7. **Probar con datos reales.** En tu `.env`: `PUBLIC_MODO_DEMO=false`, la clave `anon` y el `slug`.
+7. **Probar con datos reales.** En tu `.env`: `PUBLIC_MODO_DEMO=false`, `SUPABASE_ANON_KEY` y el `slug`.
    Corre `npm run dev` y revisa que aparezcan los productos que la empresa publicó.
 8. **Vercel.** Crea el proyecto desde el repositorio del cliente, carga las variables de la sección 2
-   (sin `PUBLIC_MODO_DEMO`) y despliega. Vercel detecta Astro solo.
+   (sin `PUBLIC_MODO_DEMO`) y despliega. Vercel detecta Astro solo. En Firewall agrega un límite de peticiones
+   para `/api/*` (unas 60 por minuto por IP). Opcional: `SENTRY_DSN` y `PUBLIC_UMAMI_*`.
 9. **Dominio.** En Vercel → Settings → Domains conecta el dominio del cliente (o `{cliente}.constockplatform.com`).
    Actualiza `PUBLIC_SITIO_URL` con ese dominio y vuelve a desplegar.
 10. **Empresa.** Pide al administrador que, en el panel, marque "Publicar en la web" en sus productos y configure
     el WhatsApp de la tienda.
-11. **Revisión final.** Haz la lista de la sección 7 en un celular real y un pedido de prueba por WhatsApp.
+11. **Legal.** Completa `src/config/legal.ts` (plazos), haz revisar los textos de `src/pages/legal/` con un abogado
+    y marca `revisado: true`. Confirma que la empresa tiene RUC y razón social en CSPlatform.
+12. **Revisión final.** Haz la lista de la sección 7 en un celular real y un pedido de prueba por WhatsApp.
 
 ## 5. Personalizar el diseño sin romper nada
 
@@ -156,18 +177,26 @@ Puedes cambiar libremente HTML, clases y estructura de `layouts/`, `components/`
   `web_tienda` devuelve `null`. Todas las páginas responden 503 sin caché, con el mensaje "Esta tienda no está
   disponible por ahora" y `noindex`.
 - **Lista del comprador:** vive en el navegador (`localStorage`, clave `lista:{slug}`), sin cuenta. Al abrir
-  `/lista` y otra vez al pulsar "Pedir por WhatsApp" se consultan precios y stock con `web_disponibilidad`; si
+  `/lista` y otra vez al pulsar "Pedir por WhatsApp" se consultan precios y stock en `/api/disponibilidad`; si
   algo cambió, se avisa y no se envía hasta que el comprador revise.
 - **Pedido:** se arma el mensaje (productos, cantidades, subtotales, total referencial, nombre y entrega) y se
   abre `https://wa.me/{whatsapp}`. No se guarda nada en el backend. Si la tienda no tiene WhatsApp, se ofrecen
   teléfono, correo y "Copiar pedido".
+- **Libro de Reclamaciones:** el formulario valida en el navegador y otra vez en el servidor (`/api/reclamos`),
+  que lo registra en CSPlatform con `web_registrar_reclamo` y devuelve un código. Es la única escritura de la web.
+  Mientras el backend no tenga esa función, el formulario ofrece el correo y teléfono de la tienda.
+- **Analítica y errores:** con `PUBLIC_UMAMI_*` se cuentan visitas y eventos sin cookies; con `SENTRY_DSN` los
+  errores del servidor llegan a Sentry. Ninguno recibe datos personales.
 - **Contrato versionado:** cada respuesta de `web_tienda` trae `version_contrato`. Si el backend publica una
   versión mayor, la consola del servidor avisa que hay que actualizar el núcleo.
 
 ## 7. Lista de revisión antes de publicar
 
 - [ ] `npm test`, `npm run check`, `npm run test:e2e` y `npm run build` pasan.
-- [ ] En Vercel: `PUBLIC_MODO_DEMO` no está o vale `false`; las otras 4 variables están cargadas.
+- [ ] En Vercel: `PUBLIC_MODO_DEMO` no está; `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `PUBLIC_TIENDA_SLUG` y
+      `PUBLIC_SITIO_URL` cargadas; regla de firewall para `/api/*`.
+- [ ] Libro de Reclamaciones: se registra un reclamo de prueba, llega la copia por correo y aparece en el panel.
+- [ ] Textos legales revisados por un abogado y `revisado: true` en `src/config/legal.ts`.
 - [ ] La portada muestra el nombre y logo reales de la empresa.
 - [ ] El catálogo lista solo productos publicados; los agotados dicen "Agotado".
 - [ ] Un producto despublicado en el panel desaparece de la web en menos de 1 minuto.
@@ -175,15 +204,16 @@ Puedes cambiar libremente HTML, clases y estructura de `layouts/`, `components/`
 - [ ] `https://{dominio}/sitemap.xml` y `/robots.txt` usan el dominio del cliente.
 - [ ] Lighthouse en celular (Chrome DevTools): LCP menor a 2,5 s.
 - [ ] Términos y Política de Privacidad de CSPlatform actualizados (tarea del dueño, plan sección 12).
+- [ ] Opcional: Umami muestra visitas y Sentry recibe un error de prueba.
 
 ## 8. Pruebas
 
 - **Unitarias (`tests/unit`)**: contrato y límites del backend, modo demo, lista, mensaje de WhatsApp, formato y
-  direcciones del catálogo.
+  direcciones del catálogo, Libro de Reclamaciones, límite por visitante, verificación de origen y monitoreo.
 - **De punta a punta (`tests/e2e`)**: levantan dos servidores en modo demo (puerto 4322 con la tienda abierta y
   4323 con la tienda desactivada) y prueban en celular y escritorio: búsqueda, filtros, agregar, lista, refresco
   de precios, pedido por WhatsApp (la salida a `wa.me` se intercepta), estado no disponible, SEO, 404 y anchos de
-  360 a 430 px.
+  360 a 430 px, Libro de Reclamaciones, páginas legales, endpoints `/api/*` y que la clave no llegue al navegador.
 - En GitHub Actions corren todas en cada push y pull request (`.github/workflows/ci.yml`).
 
 ## 9. Traer mejoras del núcleo a una copia
@@ -191,7 +221,7 @@ Puedes cambiar libremente HTML, clases y estructura de `layouts/`, `components/`
 ```bash
 git remote add plantilla https://github.com/Sp-Cesar/csplatform-store-template.git
 git fetch plantilla
-git checkout plantilla/main -- src/lib src/pages/sitemap.xml.ts src/pages/robots.txt.ts tests/unit
+git checkout plantilla/main -- src/lib src/pages/api src/pages/sitemap.xml.ts src/pages/robots.txt.ts tests/unit
 npm test
 ```
 
@@ -203,9 +233,11 @@ anteriores siguen funcionando: cada cliente se actualiza cuando conviene.
 | Síntoma | Causa probable | Qué hacer |
 |---|---|---|
 | "Esta tienda no está disponible por ahora" | Web desactivada en el Centro de Control, membresía vencida o `slug` mal escrito | Revisa la ficha de la empresa y `PUBLIC_TIENDA_SLUG` |
-| "No pudimos cargar el catálogo" | El backend no responde o falta la clave | Revisa `PUBLIC_SUPABASE_URL` y `PUBLIC_SUPABASE_ANON_KEY`; mira los logs de Vercel |
+| "No pudimos cargar el catálogo" | El backend no responde o falta la clave | Revisa `SUPABASE_URL` y `SUPABASE_ANON_KEY`; mira los logs de Vercel o Sentry |
 | Error `PUBLIC_TIENDA_SLUG no es válido` | El `slug` tiene mayúsculas, espacios o menos de 3 caracteres | Usa el `slug` exacto del Centro de Control |
-| La web muestra la Tienda Demo en producción | `PUBLIC_MODO_DEMO=true` quedó cargada en Vercel | Bórrala y vuelve a desplegar |
+| La compilación en Vercel falla con "no se permite en producción" o "Faltan variables" | Variables mal cargadas | Corrige las variables en Vercel y vuelve a desplegar |
+| El Libro de Reclamaciones dice "aún no está habilitado" | El backend no tiene `web_registrar_reclamo` | Ver `PLANTILLA.md` sección 4.9 |
+| "Enviaste varios reclamos seguidos" o error 429 | Límite por visitante | Esperar; si es legítimo, revisar los límites en `src/pages/api/` |
 | Un producto no aparece | No está marcado "Publicar en la web", está inactivo o eliminado | Revísalo en el panel |
 | No aparece el botón "Pedir por WhatsApp" | La empresa no configuró su WhatsApp | Pedir que lo configure en Configuración del panel |
 | Un cambio de precio tarda en verse | Caché de 60 s del CDN | Espera un minuto; la lista siempre trae el precio actual |
@@ -213,6 +245,6 @@ anteriores siguen funcionando: cada cliente se actualiza cuando conviene.
 
 ## 11. Estado
 
-- Fases 3, 4 y 5 hechas, en modo demo.
+- Fases 3, 4 y 5 hechas, en modo demo. Decisiones D1–D4 aplicadas (`PLANTILLA.md` sección 6.5).
 - Pendiente: probar contra el backend real cuando existan las funciones `web_*` (fases 1 y 2 del plan, en
   `csplatform-saas`) y medir el LCP con la web desplegada en Vercel.

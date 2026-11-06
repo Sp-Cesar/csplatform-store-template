@@ -1,6 +1,6 @@
 // Llamadas tipadas a las funciones web_* del backend (Supabase, RPC por HTTPS).
 // Núcleo compartido: no editar por cliente.
-// La web solo lee: no existe ninguna función de escritura para ella.
+// La web solo lee, con una excepción legal: registrar reclamos (web_registrar_reclamo).
 
 import {
   LIMITE_PRODUCTOS,
@@ -14,14 +14,20 @@ import {
   type ProductoDetalle,
   type Tienda,
 } from './tipos'
+import type { ConstanciaReclamo, Reclamo } from './reclamo'
 
-/** Lo que la web puede pedir al backend. Lo implementan el backend real y el modo demo. */
+/**
+ * Lo que la web puede pedir al backend. Lo implementan el backend real y el modo demo.
+ * Todo es lectura salvo registrarReclamo: la única escritura, exigida por ley (Libro de Reclamaciones).
+ */
 export interface Backend {
   tienda(): Promise<Tienda | null>
   filtros(): Promise<Filtros>
   productos(parametros?: ParametrosProductos): Promise<PaginaProductos>
   producto(sku: string): Promise<ProductoDetalle | null>
   disponibilidad(skus: string[]): Promise<Disponibilidad[]>
+  /** Llama a web_registrar_reclamo. Solo desde el servidor, con el reclamo ya validado. */
+  registrarReclamo(reclamo: Reclamo): Promise<ConstanciaReclamo>
 }
 
 export class ErrorBackend extends Error {
@@ -76,7 +82,7 @@ export function crearBackendSupabase(opciones: OpcionesSupabase): Backend {
   const url = opciones.url.replace(/\/+$/, '')
   const pedir = opciones.fetch ?? fetch
 
-  if (!url || !anonKey) throw new ErrorBackend('Falta PUBLIC_SUPABASE_URL o PUBLIC_SUPABASE_ANON_KEY')
+  if (!url || !anonKey) throw new ErrorBackend('Falta SUPABASE_URL o SUPABASE_ANON_KEY')
   if (!slugValido(slug)) throw new ErrorBackend(`PUBLIC_TIENDA_SLUG no es válido: "${slug}"`)
 
   async function rpc<T>(funcion: string, cuerpo: Record<string, unknown>): Promise<T> {
@@ -112,6 +118,11 @@ export function crearBackendSupabase(opciones: OpcionesSupabase): Backend {
       const lista = normalizarSkus(skus)
       if (lista.length === 0) return []
       return (await rpc<Disponibilidad[] | null>('web_disponibilidad', { p_skus: lista })) ?? []
+    },
+    registrarReclamo: async (reclamo) => {
+      const constancia = await rpc<ConstanciaReclamo | null>('web_registrar_reclamo', { p_reclamo: reclamo })
+      if (!constancia?.codigo) throw new ErrorBackend('web_registrar_reclamo no devolvió un código')
+      return constancia
     },
   }
 }

@@ -1,7 +1,7 @@
 // Hook de Preact que comparte la lista entre islas y pestañas. Núcleo compartido: no editar por cliente.
 
 import { useCallback, useEffect, useState } from 'preact/hooks'
-import { slugTienda } from './conexion'
+import { slugTienda } from './sitio'
 import { EVENTO_LISTA, guardarLista, leerLista, type ElementoLista } from './lista'
 
 // Copia en memoria compartida por todas las islas de la página. Mantiene la lista aunque el

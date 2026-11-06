@@ -1,6 +1,7 @@
 // Agrega un producto a la lista. Versión compacta para tarjetas y completa (con cantidad) para el detalle.
 // Diseño libre por cliente.
 import { useState } from 'preact/hooks'
+import { registrarEvento } from '../../lib/analitica'
 import { CANTIDAD_MAXIMA, agregar } from '../../lib/lista'
 import { usarLista } from '../../lib/usarLista'
 
@@ -29,7 +30,9 @@ export default function BotonAgregar({ sku, nombre, precio, disponible, compacto
   }
 
   const alAgregar = () => {
-    actualizar((anterior) => agregar(anterior, { sku, nombre, precio }, compacto ? 1 : cantidad))
+    const n = compacto ? 1 : cantidad
+    actualizar((anterior) => agregar(anterior, { sku, nombre, precio }, n))
+    registrarEvento({ nombre: 'agregar-a-lista', datos: { sku, cantidad: n } })
     setAgregado(true)
     setTimeout(() => setAgregado(false), 2000)
   }

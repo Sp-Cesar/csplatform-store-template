@@ -1,0 +1,49 @@
+---
+// Términos y condiciones. TEXTO BASE: revisar con asesoría legal.
+import Tienda from '../../layouts/Tienda.astro'
+import PaginaLegal from '../../components/PaginaLegal.astro'
+import { cargarTienda } from '../../lib/conexion'
+import { aplicarCache } from '../../lib/pagina'
+
+const estado = await cargarTienda()
+aplicarCache(Astro.response, estado)
+const t = estado.estado === 'ok' ? estado.tienda : null
+const titular = t?.razon_social || t?.nombre || ''
+---
+
+<Tienda estado={estado} titulo="Términos y condiciones">
+  <PaginaLegal titulo="Términos y condiciones">
+    <p>
+      Este sitio web es un catálogo de {titular}{t?.ruc && ` (RUC ${t.ruc})`}. Al usarlo aceptas estos términos.
+    </p>
+
+    <h2>Catálogo, precios y disponibilidad</h2>
+    <ul>
+      <li>Los precios están en soles (PEN) e incluyen IGV, salvo que se indique otra cosa.</li>
+      <li>
+        La disponibilidad se actualiza con frecuencia, pero puede cambiar entre tu consulta y la confirmación del pedido. "Disponible" no
+        reserva el producto.
+      </li>
+      <li>Las imágenes son referenciales.</li>
+    </ul>
+
+    <h2>Pedidos</h2>
+    <p>
+      Este sitio no procesa pagos ni registra compras. Al pulsar "Pedir por WhatsApp" envías una solicitud a la tienda; el total mostrado es
+      referencial. El pedido queda confirmado cuando la tienda te responde con el precio final, la forma de pago y la entrega, y tú los
+      aceptas.
+    </p>
+
+    <h2>Cambios, devoluciones y reclamos</h2>
+    <p>
+      Revisa nuestra <a href="/legal/cambios-y-devoluciones" class="underline">política de cambios y devoluciones</a>. Puedes presentar un
+      reclamo o queja en nuestro <a href="/libro-de-reclamaciones" class="underline">Libro de Reclamaciones</a>.
+    </p>
+
+    <h2>Uso del sitio</h2>
+    <p>
+      No está permitido copiar el catálogo de forma automatizada ni usar el sitio para fines ilícitos. Estos términos se rigen por las leyes
+      de la República del Perú.
+    </p>
+  </PaginaLegal>
+</Tienda>

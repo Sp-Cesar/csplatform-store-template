@@ -1,0 +1,66 @@
+---
+// Política de privacidad. TEXTO BASE: revisar con asesoría legal (Ley 29733 de Protección de Datos Personales).
+import Tienda from '../../layouts/Tienda.astro'
+import PaginaLegal from '../../components/PaginaLegal.astro'
+import { legal } from '../../config/legal'
+import { sitio } from '../../lib/sitio'
+import { cargarTienda } from '../../lib/conexion'
+import { aplicarCache } from '../../lib/pagina'
+
+const estado = await cargarTienda()
+aplicarCache(Astro.response, estado)
+const t = estado.estado === 'ok' ? estado.tienda : null
+const titular = t?.razon_social || t?.nombre || ''
+const contacto = legal.contactoDatosPersonales || t?.email || 'el correo de la tienda'
+const conAnalitica = Boolean(sitio.umami.script && sitio.umami.id)
+---
+
+<Tienda estado={estado} titulo="Política de privacidad">
+  <PaginaLegal titulo="Política de privacidad">
+    <p>
+      {titular}{t?.ruc && ` (RUC ${t.ruc})`} respeta tu privacidad. Esta política explica qué datos usamos en este sitio web y para qué,
+      conforme a la Ley N.° 29733, Ley de Protección de Datos Personales, y su reglamento.
+    </p>
+
+    <h2>Qué datos usamos</h2>
+    <ul>
+      <li>
+        <strong>Tu lista de productos</strong> se guarda solo en tu navegador. No la recibimos hasta que tú decides enviarla.
+      </li>
+      <li>
+        <strong>Pedidos por WhatsApp:</strong> cuando pulsas "Pedir por WhatsApp", el mensaje (con tu nombre, si lo escribes) se envía desde tu
+        cuenta de WhatsApp directamente a la tienda. Este sitio no lo guarda.
+      </li>
+      <li>
+        <strong>Libro de Reclamaciones:</strong> si presentas un reclamo o queja, registramos los datos del formulario (nombre, documento,
+        domicilio, teléfono, correo y detalle) para atenderlo y cumplir la normativa de protección al consumidor.
+      </li>
+      {
+        conAnalitica && (
+          <li>
+            <strong>Estadísticas de visitas:</strong> contamos visitas y acciones (por ejemplo, productos agregados a la lista) de forma
+            agregada, sin cookies y sin identificarte.
+          </li>
+        )
+      }
+    </ul>
+
+    <h2>Para qué y por cuánto tiempo</h2>
+    <p>
+      Usamos los datos del Libro de Reclamaciones solo para atender tu reclamo y los conservamos el tiempo que exige la normativa vigente.
+      No vendemos ni cedemos tus datos a terceros con fines comerciales.
+    </p>
+
+    <h2>Quién nos ayuda</h2>
+    <p>
+      Este sitio funciona con la plataforma CSPlatform y servicios de alojamiento en la nube, que tratan los datos por encargo nuestro y
+      con medidas de seguridad.
+    </p>
+
+    <h2>Tus derechos</h2>
+    <p>
+      Puedes ejercer tus derechos de acceso, rectificación, cancelación y oposición escribiendo a {contacto}. Si no quedas conforme con la
+      respuesta, puedes acudir a la Autoridad Nacional de Protección de Datos Personales.
+    </p>
+  </PaginaLegal>
+</Tienda>

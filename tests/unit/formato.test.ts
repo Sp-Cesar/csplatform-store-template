@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { especificacionesComoFilas, formatearSoles } from '../../src/lib/formato'
+import { especificacionesComoFilas, formatearSoles, jsonParaScript } from '../../src/lib/formato'
 
 describe('formatearSoles', () => {
   it('agrupa miles y fija dos decimales', () => {
@@ -32,5 +32,15 @@ describe('especificacionesComoFilas', () => {
 
   it('devuelve vacío sin especificaciones', () => {
     expect(especificacionesComoFilas(null)).toEqual([])
+  })
+})
+
+describe('jsonParaScript', () => {
+  it('no deja cerrar la etiqueta script y conserva los datos', () => {
+    const datos = { name: 'Cable </script><script>alert(1)</script> & más' }
+    const texto = jsonParaScript(datos)
+    expect(texto).not.toContain('<')
+    expect(texto).not.toContain('>')
+    expect(JSON.parse(texto)).toEqual(datos)
   })
 })

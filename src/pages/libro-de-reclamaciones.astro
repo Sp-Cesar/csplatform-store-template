@@ -1,0 +1,53 @@
+---
+// Libro de Reclamaciones virtual. Obligatorio en Perú para negocios que venden a consumidores.
+import Tienda from '../layouts/Tienda.astro'
+import FormularioReclamo from '../components/islas/FormularioReclamo'
+import { legal } from '../config/legal'
+import { cargarTienda } from '../lib/conexion'
+import { aplicarCache } from '../lib/pagina'
+
+const estado = await cargarTienda()
+aplicarCache(Astro.response, estado)
+const tienda = estado.estado === 'ok' ? estado.tienda : null
+const hoy = new Date().toLocaleDateString('es-PE', { dateStyle: 'long', timeZone: 'America/Lima' })
+---
+
+<Tienda estado={estado} titulo="Libro de Reclamaciones" descripcion="Libro de Reclamaciones virtual. Registra un reclamo o una queja.">
+  {
+    tienda && (
+      <div class="mx-auto flex max-w-3xl flex-col gap-6">
+        <header>
+          <h1 class="text-2xl font-semibold">Libro de Reclamaciones</h1>
+          <p class="mt-1 text-suave">
+            Conforme al Código de Protección y Defensa del Consumidor, esta tienda cuenta con un Libro de Reclamaciones a tu disposición.
+          </p>
+        </header>
+
+        <dl class="grid gap-x-4 gap-y-1 rounded-lg border border-borde bg-white p-4 text-sm sm:grid-cols-[auto_1fr]">
+          <dt class="text-suave">Proveedor</dt>
+          <dd class="font-medium">{tienda.razon_social || tienda.nombre}</dd>
+          <dt class="text-suave">RUC</dt>
+          <dd>{tienda.ruc || 'Pendiente de configurar'}</dd>
+          {tienda.direccion && (
+            <>
+              <dt class="text-suave">Dirección</dt>
+              <dd>{tienda.direccion}</dd>
+            </>
+          )}
+          <dt class="text-suave">Fecha</dt>
+          <dd>{hoy}</dd>
+        </dl>
+
+        <FormularioReclamo client:load email={tienda.email} telefono={tienda.telefono} />
+
+        <section class="text-sm text-suave">
+          <p>
+            La formulación del reclamo no impide acudir a otras vías de solución de controversias ni es requisito previo para interponer una
+            denuncia ante el INDECOPI.
+          </p>
+          <p class="mt-2">El proveedor deberá dar respuesta al reclamo en un plazo no mayor a {legal.diasRespuestaReclamo} días hábiles.</p>
+        </section>
+      </div>
+    )
+  }
+</Tienda>

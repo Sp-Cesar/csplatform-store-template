@@ -1,6 +1,6 @@
 // Ayudas para las páginas del servidor. Núcleo compartido: no editar por cliente.
 
-import { CACHE_PUBLICA, SIN_CACHE, type EstadoTienda } from './conexion'
+import { CACHE_PUBLICA, SIN_CACHE, reportarError, type EstadoTienda } from './conexion'
 
 /** Respuesta de Astro (Astro.response) en lo que se usa aquí. */
 interface RespuestaAstro {
@@ -28,7 +28,7 @@ export async function intentar<T>(respuesta: RespuestaAstro, llamada: () => Prom
   try {
     return { ok: true, valor: await llamada() }
   } catch (e) {
-    console.error(e)
+    await reportarError(e, { origen: 'intentar' })
     respuesta.headers.set('Cache-Control', SIN_CACHE)
     return { ok: false, valor: respaldo }
   }

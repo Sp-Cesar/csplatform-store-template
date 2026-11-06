@@ -1,0 +1,38 @@
+---
+// Política de cambios y devoluciones. TEXTO BASE: revisar con asesoría legal y con la práctica de la tienda.
+import Tienda from '../../layouts/Tienda.astro'
+import PaginaLegal from '../../components/PaginaLegal.astro'
+import { legal } from '../../config/legal'
+import { cargarTienda } from '../../lib/conexion'
+import { aplicarCache } from '../../lib/pagina'
+
+const estado = await cargarTienda()
+aplicarCache(Astro.response, estado)
+const t = estado.estado === 'ok' ? estado.tienda : null
+---
+
+<Tienda estado={estado} titulo="Cambios y devoluciones">
+  <PaginaLegal titulo="Cambios y devoluciones">
+    <h2>Plazo</h2>
+    <p>Puedes solicitar un cambio o devolución dentro de los {legal.diasCambio} días calendario desde que recibes el producto.</p>
+
+    <h2>Condiciones</h2>
+    <ul>
+      <li>El producto debe estar sin uso, con su empaque, accesorios y manuales completos.</li>
+      <li>Debes presentar el comprobante de pago (boleta o factura).</li>
+      <li>Los productos con falla de fábrica se atienden según la garantía del fabricante o de la tienda.</li>
+    </ul>
+
+    <h2>Cómo solicitarlo</h2>
+    <p>
+      Escríbenos{t?.whatsapp && ' por WhatsApp'}{t?.email && ` o a ${t.email}`} con tu número de comprobante y el motivo. Te indicaremos los pasos
+      para la revisión del producto.
+    </p>
+
+    <h2>Si no estás conforme</h2>
+    <p>
+      Puedes presentar un reclamo en nuestro <a href="/libro-de-reclamaciones" class="underline">Libro de Reclamaciones</a>. Esta política no
+      limita los derechos que te reconoce el Código de Protección y Defensa del Consumidor.
+    </p>
+  </PaginaLegal>
+</Tienda>

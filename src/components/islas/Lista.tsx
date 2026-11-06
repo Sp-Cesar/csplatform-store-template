@@ -1,8 +1,10 @@
 // Lista del comprador y envío del pedido por WhatsApp. Diseño libre por cliente.
-// Al abrirse y antes de enviar, refresca precios y disponibilidad desde el backend (web_disponibilidad).
+// Al abrirse y antes de enviar, refresca precios y disponibilidad con /api/disponibilidad (el servidor
+// consulta web_disponibilidad; la clave del backend nunca llega al navegador).
 import { useEffect, useState } from 'preact/hooks'
 import { rutaProducto } from '../../lib/catalogo'
-import { backend } from '../../lib/conexion'
+import { registrarEvento } from '../../lib/analitica'
+import { consultarDisponibilidad } from '../../lib/clienteApi'
 import { formatearSoles } from '../../lib/formato'
 import { CANTIDAD_MAXIMA, cambiarCantidad, quitar, refrescar, totalLista, unidades, type Cambio, type ElementoLista } from '../../lib/lista'
 import { usarLista } from '../../lib/usarLista'
@@ -36,7 +38,7 @@ export default function Lista({ whatsapp, telefono, email, opcionesEntrega }: Pr
   async function refrescarDesdeBackend(actual: ElementoLista[]): Promise<{ lista: ElementoLista[]; cambios: Cambio[] } | null> {
     if (actual.length === 0) return { lista: [], cambios: [] }
     try {
-      const frescos = await backend().disponibilidad(actual.map((e) => e.sku))
+      const frescos = await consultarDisponibilidad(actual.map((e) => e.sku))
       const resultado = refrescar(actual, frescos)
       actualizar(resultado.lista)
       return resultado
@@ -68,7 +70,12 @@ export default function Lista({ whatsapp, telefono, email, opcionesEntrega }: Pr
     setCambios(r.cambios)
     if (r.cambios.length > 0 || r.lista.length === 0) return // El comprador revisa antes de enviar.
     const enlace = enlaceWhatsapp(whatsapp, mensajePedido({ elementos: r.lista, nombre, entrega }))
-    if (enlace) location.href = enlace
+    if (!enlace) return
+    registrarEvento({
+      nombre: 'pedido-whatsapp',
+      datos: { productos: r.lista.length, unidades: unidades(r.lista), total: totalLista(r.lista) },
+    })
+    location.href = enlace
   }
 
   async function alCopiar() {

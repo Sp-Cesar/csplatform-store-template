@@ -15,6 +15,9 @@ export interface Tienda {
   direccion: string | null
   email: string | null
   sitio_web: string | null
+  /** Datos del proveedor exigidos por el Libro de Reclamaciones. Opcionales: llegan cuando el backend los agregue. */
+  razon_social?: string | null
+  ruc?: string | null
 }
 
 export interface OpcionFiltro {

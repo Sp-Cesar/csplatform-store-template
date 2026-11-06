@@ -4,6 +4,7 @@
 // Núcleo compartido: no editar por cliente.
 
 import { normalizarParametros, normalizarSkus, type Backend } from './backend'
+import type { ConstanciaReclamo } from './reclamo'
 import type { Filtros, OpcionFiltro, ProductoDetalle, Tienda } from './tipos'
 
 export const SLUG_NO_DISPONIBLE = 'no-disponible'
@@ -77,6 +78,8 @@ const TIENDA: Omit<Tienda, 'slug'> = {
   direccion: 'Av. Ejemplo 123, Lima',
   email: 'ventas@tienda-demo.pe',
   sitio_web: null,
+  razon_social: 'Tienda Demo S.A.C.',
+  ruc: '20000000001',
 }
 
 const contiene = (texto: string, busqueda: string) => texto.toLowerCase().includes(busqueda.toLowerCase())
@@ -102,6 +105,7 @@ const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export function crearBackendDemo(slug: string, latencia = 0): Backend {
   const visible = slug !== SLUG_NO_DISPONIBLE
+  let correlativo = 0
   const responder = async <T>(valor: T): Promise<T> => {
     if (latencia > 0) await esperar(latencia)
     return structuredClone(valor)
@@ -145,6 +149,15 @@ export function crearBackendDemo(slug: string, latencia = 0): Backend {
       return responder(
         PRODUCTOS.filter((x) => pedidos.has(x.sku)).map(({ sku, nombre, precio, disponible }) => ({ sku, nombre, precio, disponible })),
       )
+    },
+      // Simula el registro: no guarda nada. El código sigue el formato que devolverá el backend.
+    registrarReclamo: () => {
+      correlativo += 1
+      const ahora = new Date()
+      return responder<ConstanciaReclamo>({
+        codigo: `DEMO-${ahora.getFullYear()}-${String(correlativo).padStart(6, '0')}`,
+        fecha: ahora.toISOString(),
+      })
     },
   }
 }

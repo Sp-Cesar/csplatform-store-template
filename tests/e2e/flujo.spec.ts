@@ -107,6 +107,7 @@ test('filtra por categoría, ordena, quita filtros y maneja páginas fuera de ra
 
   await page.getByLabel('Categoría').selectOption({ label: 'Monitores (3)' })
   await expect(page).toHaveURL(/categoria=cat-monitores/)
+  await page.waitForLoadState('load') // El script que envía el filtro al cambiar debe estar listo.
   await expect(page.getByText('3 productos')).toBeVisible()
 
   await page.getByLabel('Ordenar por').selectOption('precio_asc')

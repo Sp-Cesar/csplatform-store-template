@@ -1,27 +1,27 @@
 // Crea el backend a partir de las variables de entorno del proyecto (las carga el dueño en Vercel).
-// Núcleo compartido: no editar por cliente. Funciona en el servidor y en las islas del navegador.
+// Núcleo compartido: no editar por cliente.
+// SOLO SERVIDOR: lee la clave del backend con astro:env/server. Si una isla lo importa, la compilación falla
+// a propósito. Las islas usan clienteApi.ts (endpoints /api/*) y sitio.ts.
 
+import { SENTRY_DSN, SUPABASE_ANON_KEY, SUPABASE_URL } from 'astro:env/server'
 import { crearBackendSupabase, type Backend } from './backend'
 import { crearBackendDemo } from './demo'
+import { crearReportador } from './monitoreo'
+import { sitio, slugTienda } from './sitio'
 import { VERSION_CONTRATO, type Tienda } from './tipos'
 
-export const entorno = {
-  supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL ?? '',
-  anonKey: import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? '',
-  slug: import.meta.env.PUBLIC_TIENDA_SLUG ?? '',
-  sitioUrl: import.meta.env.PUBLIC_SITIO_URL ?? '',
-  modoDemo: import.meta.env.PUBLIC_MODO_DEMO === 'true',
-}
-
-/** Slug de esta web. En modo demo puede quedar vacío. */
-export const slugTienda = entorno.slug || (entorno.modoDemo ? 'demo' : '')
+/** Envía el error a los logs y, si hay SENTRY_DSN, a Sentry. */
+export const reportarError = crearReportador({
+  dsn: SENTRY_DSN,
+  entorno: sitio.modoDemo ? 'demo' : (process.env.VERCEL_ENV ?? 'development'),
+})
 
 let instancia: Backend | undefined
 
 export function backend(): Backend {
-  instancia ??= entorno.modoDemo
+  instancia ??= sitio.modoDemo
     ? crearBackendDemo(slugTienda)
-    : crearBackendSupabase({ url: entorno.supabaseUrl, anonKey: entorno.anonKey, slug: entorno.slug })
+    : crearBackendSupabase({ url: SUPABASE_URL ?? '', anonKey: SUPABASE_ANON_KEY ?? '', slug: sitio.slug })
   return instancia
 }
 
@@ -45,7 +45,7 @@ export async function cargarTienda(): Promise<EstadoTienda> {
     }
     return { estado: 'ok', tienda }
   } catch (e) {
-    console.error(e)
+    await reportarError(e, { origen: 'cargarTienda' })
     return { estado: 'error', mensaje: (e as Error).message }
   }
 }
