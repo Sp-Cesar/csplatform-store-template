@@ -20,6 +20,8 @@ if (env.VERCEL_ENV === 'production') {
 export default defineConfig({
   site: env.PUBLIC_SITIO_URL || undefined,
   output: 'server',
+  // La barra de herramientas de Astro (abajo en desarrollo) tapa el pie en celular y hace inestables las pruebas e2e.
+  devToolbar: { enabled: env.PRUEBAS_E2E !== 'true' },
   adapter: vercel(),
   integrations: [preact()],
   vite: {

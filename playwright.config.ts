@@ -15,6 +15,7 @@ const servidor = (puerto: number, slug: string) => ({
   // Las variables del proceso tienen prioridad sobre .env.
   env: {
     PUBLIC_MODO_DEMO: 'true',
+    PRUEBAS_E2E: 'true',
     PUBLIC_TIENDA_SLUG: slug,
     PUBLIC_SITIO_URL: `http://localhost:${puerto}`,
     SUPABASE_URL: '',
